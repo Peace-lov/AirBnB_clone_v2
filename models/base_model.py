@@ -1,42 +1,69 @@
 #!/usr/bin/python3
-"""
-The base model
-"""
-
-
-from datetime import datetime
+"""Base model class for AirBnB"""
+from sqlalchemy.ext.declarative import declarative_base
 import uuid
+import models
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime
+
+
+Base = declarative_base()
 
 
 class BaseModel:
-    """Defining all common attributues and methods.
-    id: string - assign with an uuid when an instance is ceated
-    created_at: assigning with current datetime
-    updated_at: assigning with current datetime
-
-    __str__: prints the [<class name>] (<self.id>) <self.__dict__>
-    save(self): updates the public instance attribute updated_at
-    to_dict(self): returns a dictionary containing all keys
+    """This class will defines all common attributes/methods
+    for other classes
     """
+    id = Column(String(60), unique=True, nullable=False, primary_key=True)
+    created_at = Column(DateTime, nullable=False, default=(datetime.utcnow()))
+    updated_at = Column(DateTime, nullable=False, default=(datetime.utcnow()))
 
-    def __init__(self):
-        """Public instance attributes for the Class"""
-        self.id = str(uuid.uuid4())
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
+    def __init__(self, *args, **kwargs):
+        """Instantiation of base model class"""
+        if kwargs:
+            for k, v in kwargs.items():
+                if k == "created_at" or k == "updated_at":
+                    v = datetime.strptime(v, "%Y-%m-%dT%H:%M:%S.%f")
+                if k != "__class__":
+                    setattr(self, k, v)
+            if "id" not in kwargs:
+                self.id = str(uuid.uuid4())
+            if "created_at" not in kwargs:
+                self.created_at = datetime.now()
+            if "updated_at" not in kwargs:
+                self.updated_at = datetime.now()
+        else:
+            self.id = str(uuid.uuid4())
+            self.created_at = self.updated_at = datetime.now()
 
     def __str__(self):
-        """Should print some attributes"""
-        return f"[{self.__class__.__name__}] ({self.id}) {self.__dict__}"
+        """returns a string representation of class"""
+        return "[{}] ({}) {}".format(
+            type(self).__name__, self.id, self.__dict__)
+
+    def __repr__(self):
+        """return a representaion"""
+        return self.__str__()
 
     def save(self):
-        """Updating updated_at with the current datetime"""
+        """updates the public instance with current date and time"""
         self.updated_at = datetime.now()
+        models.storage.new(self)
+        models.storage.save()
 
     def to_dict(self):
-        """Returns dictionary containing all keys/values"""
-        object_dict = self.__dict__.copy()
-        object_dict['__class__'] = self.__class__.__name__
-        object_dict['created_at'] = self.created_at.isoformat()
-        object_dict['updated_at'] = self.updated_at.isoformat()
-        return object_dict
+        """returns a dictionary of all the key values in __dict__
+        """
+        my_dict = dict(self.__dict__)
+        my_dict["__class__"] = str(type(self).__name__)
+        my_dict["created_at"] = self.created_at.isoformat()
+        my_dict["updated_at"] = self.updated_at.isoformat()
+        if '_sa_instance_state' in my_dict.keys():
+            del my_dict['_sa_instance_state']
+        return my_dict
+
+    def delete(self):
+        """ delete object
+        """
+        models.storage.delete(self)
+
